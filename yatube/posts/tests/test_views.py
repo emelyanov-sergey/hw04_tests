@@ -3,6 +3,7 @@ from django.urls import reverse
 from django import forms
 
 from posts.models import Post, Group, User
+from yatube.settings import POSTS_PER_PAGE
 
 
 class PostPagesTests(TestCase):
@@ -15,6 +16,11 @@ class PostPagesTests(TestCase):
             title='Тестовая группа',
             slug='test-slug',
             description='Тестовое описание',
+        )
+        cls.group2 = Group.objects.create(
+            title='Тестовая группа 2',
+            slug='test-slug2',
+            description='Тестовое описание 2',
         )
         cls.post = Post.objects.create(
             author=PostPagesTests.user,
@@ -58,36 +64,30 @@ class PostPagesTests(TestCase):
         """Шаблон index сформирован с правильным контекстом."""
         response = self.authorized_client.get(reverse('posts:index'))
         first_object = response.context['page_obj'][0]
-        post_author_0 = first_object.author
-        post_text_0 = first_object.text
-        post_group_0 = first_object.group
-        self.assertEqual(post_author_0, self.user)
-        self.assertEqual(post_text_0, self.post.text)
-        self.assertEqual(post_group_0, self.group)
+        self.assertEqual(first_object.author, self.user)
+        self.assertEqual(first_object.text, self.post.text)
+        self.assertEqual(first_object.group, self.group)
 
     def test_group_list_page_show_correct_context(self):
         """Шаблон group_list сформирован с правильным контекстом."""
         response = self.authorized_client.get(
             reverse('posts:group_list', kwargs={'slug': self.group.slug}))
         first_object = response.context['page_obj'][0]
-        post_author_0 = first_object.author
-        post_text_0 = first_object.text
-        post_group_0 = first_object.group
-        self.assertEqual(post_author_0, self.user)
-        self.assertEqual(post_text_0, self.post.text)
-        self.assertEqual(post_group_0, self.group)
+        self.assertEqual(first_object.author, self.user)
+        self.assertEqual(first_object.text, self.post.text)
+        self.assertEqual(first_object.group, self.group)
 
     def test_profile_page_show_correct_context(self):
         """Шаблон profile сформирован с правильным контекстом."""
         response = self.authorized_client.get(
             reverse('posts:profile', kwargs={'username': self.user.username}))
         first_object = response.context['page_obj'][0]
-        form_fields = {
+        data_fields = {
             first_object.text: self.post.text,
             first_object.group: self.group,
             first_object.author: self.user
         }
-        for value, expected in form_fields.items():
+        for value, expected in data_fields.items():
             with self.subTest(value=value):
                 self.assertEqual(value, expected)
 
@@ -101,7 +101,8 @@ class PostPagesTests(TestCase):
             response.context['post'].author: self.user.username
         }
         for value, expected in post_text_0.items():
-            self.assertEqual(post_text_0[value], expected)
+            with self.subTest(value=value):
+                self.assertEqual(post_text_0[value], expected)
 
     def test_create_page_show_correct_context(self):
         """Шаблон create сформирован с правильным контекстом."""
@@ -128,57 +129,39 @@ class PostPagesTests(TestCase):
                 form_field = response.context.get('form').fields.get(value)
                 self.assertIsInstance(form_field, expected)
 
-    def test_check_post_on_homepage_correct(self):
-        """Созданный пост корректно отображается на Главной странице """
-        post = Post.objects.create(
-            text=self.post.text,
-            author=self.user,
-            group=self.group
-        )
-        response_index = self.authorized_client.get(reverse('posts:index'))
-        response_group = self.authorized_client.get(reverse(
-            'posts:group_list', kwargs={'slug': self.group.slug}))
-        response_profile = self.authorized_client.get(reverse(
-            'posts:profile', kwargs={'username': self.user.username}))
-        index = response_index.context['page_obj']
-        group = response_group.context['page_obj']
-        profile = response_profile.context['page_obj']
-        self.assertIn(post, index, 'Поста нет на главной')
-        self.assertIn(post, group, 'Поста нет в группе')
-        self.assertIn(post, profile, 'Поста нет в профиле')
-
     def test_post_added_correctly_user2(self):
         """Пост при создании не добавляется другому пользователю
            Но виден на главной и в группе"""
-        group2 = Group.objects.create(title='Тестовая группа 2',
-                                      slug='test_group2')
-        posts_count = Post.objects.filter(group=self.group).count()
         post = Post.objects.create(
             text='Тестовый пост от другого автора',
             author=self.user2,
-            group=group2
+            group=self.group2
         )
-        response_profile = self.authorized_client.get(
+        response = self.authorized_client.get(
             reverse('posts:profile',
                     kwargs={'username': self.user.username}))
-        group = Post.objects.filter(group=self.group).count()
-        profile = response_profile.context['page_obj']
-        self.assertEqual(group, posts_count, 'поста нет в другой группе')
-        self.assertNotIn(post, profile,
+        self.assertNotIn(post, response.context['page_obj'],
                          'поста нет в группе другого пользователя')
+        response = self.authorized_client.get(
+            reverse('posts:group_list', kwargs={'slug': self.group2.slug})
+        )
+        context = response.context['page_obj'].object_list
+        self.assertNotIn(self.post, context, 'поста нет в другой группе')
 
 
 class PaginatorViewsTest(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        cls.POST_PER_SECOND_PAGE = 3
+        cls.ALL_POSTS = POSTS_PER_PAGE + (cls.POST_PER_SECOND_PAGE)
         cls.user = User.objects.create_user(username='test_user')
         cls.group = Group.objects.create(
             title='Тестовая группа',
             slug='test_group',
             description='Тестовое описание',
         )
-        for i in range(1, 14):
+        for i in range(cls.ALL_POSTS):
             cls.post = Post.objects.create(
                 author=cls.user,
                 text=f'Тестовый пост {i}',
@@ -196,19 +179,20 @@ class PaginatorViewsTest(TestCase):
     def test_homepage_first_page_contains_ten_records(self):
         '''Проверка: количество постов на первой странице Главной равно 10.'''
         response = self.client.get(reverse('posts:index'))
-        self.assertEqual(len(response.context['page_obj']), 10)
+        self.assertEqual(len(response.context['page_obj']), POSTS_PER_PAGE)
 
     def test_homepage_second_page_contains_three_records(self):
         '''Проверка: количество постов на второй странице Главной равно 3.'''
         response = self.client.get(reverse('posts:index') + '?page=2')
-        self.assertEqual(len(response.context['page_obj']), 3)
+        self.assertEqual(len(response.context['page_obj']),
+                         self.POST_PER_SECOND_PAGE)
 
     def test_group_page_first_page_contains_ten_records(self):
         '''Проверка: количество постов на первой странице Группы равно 10.'''
         response = self.client.get(
             reverse('posts:group_list', kwargs={'slug': self.group.slug})
         )
-        self.assertEqual(len(response.context['page_obj']), 10)
+        self.assertEqual(len(response.context['page_obj']), POSTS_PER_PAGE)
 
     def test_group_page_second_page_contains_three_records(self):
         '''Проверка: количество постов на второй странице Группы равно 3.'''
@@ -217,7 +201,8 @@ class PaginatorViewsTest(TestCase):
                 'posts:group_list',
                 kwargs={'slug': self.group.slug}
             ) + '?page=2')
-        self.assertEqual(len(response.context['page_obj']), 3)
+        self.assertEqual(len(response.context['page_obj']),
+                         self.POST_PER_SECOND_PAGE)
 
     def test_profile_page_first_page_contains_ten_records(self):
         '''Проверка: количество постов на первой странице Профиля равно 10.'''
@@ -227,7 +212,7 @@ class PaginatorViewsTest(TestCase):
                 kwargs={'username': self.post.author.username}
             )
         )
-        self.assertEqual(len(response.context['page_obj']), 10)
+        self.assertEqual(len(response.context['page_obj']), POSTS_PER_PAGE)
 
     def test_profile_page_second_page_contains_three_records(self):
         '''Проверка: количество постов на второй странице Профиля равно 3.'''
@@ -236,4 +221,5 @@ class PaginatorViewsTest(TestCase):
                 'posts:profile',
                 kwargs={'username': self.post.author.username}
             ) + '?page=2')
-        self.assertEqual(len(response.context['page_obj']), 3)
+        self.assertEqual(len(response.context['page_obj']),
+                         self.POST_PER_SECOND_PAGE)

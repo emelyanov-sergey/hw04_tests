@@ -1,4 +1,5 @@
 from http import HTTPStatus
+
 from django.test import Client, TestCase
 from django.urls import reverse
 
@@ -21,22 +22,30 @@ class PostFormTests(TestCase):
         )
 
     def setUp(self):
-        self.guest_client = Client()
         self.authorized_client = Client()
         self.authorized_client.force_login(PostFormTests.user)
 
     def test_create_post(self):
         """Проверка создания поста"""
         posts_count = Post.objects.count()
-        form_data = {'text': 'Тестовый текст'}
+        form_data = {
+            'group': self.group.id,
+            'text': 'Тестовый текст',
+        }
         response = self.authorized_client.post(
             reverse('posts:post_create'), data=form_data, follow=True,)
+        new_post = Post.objects.first()
         self.assertRedirects(response, reverse(
             'posts:profile',
             kwargs={'username': self.user.username}
         ))
         self.assertEqual(Post.objects.count(), posts_count + 1)
-        self.assertTrue(Post.objects.filter(text='Тестовый текст').exists())
+        self.assertEqual(new_post.text, form_data['text'],
+                         "Текс не совпадает с ожидаемым")
+        self.assertEqual(new_post.group.id, form_data['group'],
+                         "Поля группа не совпадает с ожидаемым")
+        self.assertEqual(new_post.author, self.user,
+                         "Автор не совпадаем с ожидаемым")
         self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_post_edit(self):
@@ -47,10 +56,16 @@ class PostFormTests(TestCase):
             'posts:post_edit',
             args=({self.post.id})
         ), data=form_data, follow=True,)
+        edit_post = Post.objects.get(id=self.post.id)
         self.assertRedirects(response, reverse(
             'posts:post_detail',
             kwargs={'post_id': self.post.id}
         ))
         self.assertEqual(Post.objects.count(), posts_count)
-        self.assertTrue(Post.objects.filter(text='Изменяем текст').exists)
+        self.assertEqual(edit_post.text, form_data['text'],
+                         "Текс не совпадает с ожидаемым")
+        self.assertEqual(edit_post.group.id, form_data['group'],
+                         "Группа не совпадает с ожидаемым")
+        self.assertEqual(edit_post.author, self.user,
+                         "Автор не совпадаем с ожидаемым")
         self.assertEqual(response.status_code, HTTPStatus.OK)

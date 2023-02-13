@@ -1,6 +1,7 @@
-from django.test import TestCase, Client
-
 from http import HTTPStatus
+
+from django.test import TestCase, Client
+from django.urls import reverse
 
 from posts.models import Post, Group, User
 
@@ -9,7 +10,7 @@ class PostURLTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.user = User.objects.create_user(username='NoName')
+        cls.user = User.objects.create(username='Author')
         cls.group = Group.objects.create(
             title='Тестовая группа',
             slug='test-slug',
@@ -21,9 +22,12 @@ class PostURLTests(TestCase):
         )
 
     def setUp(self):
+        self.user = User.objects.create(username='No_author')
         self.guest_client = Client()
         self.authorized_client = Client()
         self.authorized_client.force_login(PostURLTests.user)
+        self.authorized_client_not_auth = Client()
+        self.authorized_client_not_auth.force_login(self.user)
 
     def test_url_exists_everyone(self):
         """Страницы доступны всем пользователям"""
@@ -57,3 +61,37 @@ class PostURLTests(TestCase):
         """Несуществующая страница выдает ошибку 404"""
         response = self.guest_client.get('/not_exist/')
         self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
+
+    def test_url_author_edit_post(self):
+        """Автору поста доступна страница редактирования"""
+        url = f'/posts/{PostURLTests.post.pk}/edit/'
+        response = self.authorized_client.get(url)
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+
+    def test_url_no_author_edit_post(self):
+        """Не автор поста перенаправляется на страницу поста"""
+        url = f'/posts/{PostURLTests.post.pk}/edit/'
+        response = self.authorized_client_not_auth.get(url, follow=True)
+        self.assertRedirects(
+            response,
+            reverse(
+                'posts:post_detail',
+                kwargs={'post_id': PostURLTests.post.pk}
+            ),
+        )
+
+    def test_guest_edit_post(self):
+        """Гостю не доступно редактирование поста"""
+        url = f'/posts/{PostURLTests.post.pk}/edit/'
+        response = self.guest_client.get(url)
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
+
+    def test_guest_dont_create_page(self):
+        """Гость не может создать пост"""
+        response = self.guest_client.get('/create/')
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
+
+    def test_url_authorized_create_page(self):
+        """Авторизованному доступна страница создания поста"""
+        response = self.authorized_client.get('/create/')
+        self.assertEqual(response.status_code, HTTPStatus.OK)
