@@ -11,6 +11,7 @@ class PostURLTests(TestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.user = User.objects.create(username='Author')
+        cls.not_author = User.objects.create(username='No_author')
         cls.group = Group.objects.create(
             title='Тестовая группа',
             slug='test-slug',
@@ -22,12 +23,9 @@ class PostURLTests(TestCase):
         )
 
     def setUp(self):
-        self.user = User.objects.create(username='No_author')
         self.guest_client = Client()
         self.authorized_client = Client()
         self.authorized_client.force_login(PostURLTests.user)
-        self.authorized_client_not_auth = Client()
-        self.authorized_client_not_auth.force_login(self.user)
 
     def test_url_exists_everyone(self):
         """Страницы доступны всем пользователям"""
@@ -69,9 +67,11 @@ class PostURLTests(TestCase):
         self.assertEqual(response.status_code, HTTPStatus.OK)
 
     def test_url_no_author_edit_post(self):
-        """Не автор поста перенаправляется на страницу поста"""
+        """Не автору поста не доступна страница поста и
+           он перенаправляется на страницу поста"""
+        self.authorized_client.force_login(self.not_author)
         url = f'/posts/{PostURLTests.post.pk}/edit/'
-        response = self.authorized_client_not_auth.get(url, follow=True)
+        response = self.authorized_client.get(url)
         self.assertRedirects(
             response,
             reverse(
@@ -79,6 +79,7 @@ class PostURLTests(TestCase):
                 kwargs={'post_id': PostURLTests.post.pk}
             ),
         )
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
 
     def test_guest_edit_post(self):
         """Гостю не доступно редактирование поста"""

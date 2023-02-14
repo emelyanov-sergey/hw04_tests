@@ -1,9 +1,11 @@
 from django.test import TestCase, Client
 from django.urls import reverse
 from django import forms
+from django.conf import settings
 
 from posts.models import Post, Group, User
-from yatube.settings import POSTS_PER_PAGE
+
+POSTS_PER_PAGE = settings.POSTS_PER_PAGE
 
 
 class PostPagesTests(TestCase):
@@ -95,14 +97,9 @@ class PostPagesTests(TestCase):
         """Шаблон post_detail сформирован с правильным контекстом."""
         response = self.authorized_client.get(
             reverse('posts:post_detail', kwargs={'post_id': self.post.id}))
-        post_text_0 = {
-            response.context['post'].text: self.post.text,
-            response.context['post'].group: self.group,
-            response.context['post'].author: self.user.username
-        }
-        for value, expected in post_text_0.items():
-            with self.subTest(value=value):
-                self.assertEqual(post_text_0[value], expected)
+        self.assertEqual(response.context.get('post').text, self.post.text)
+        self.assertEqual(response.context.get('post').author, self.post.author)
+        self.assertEqual(response.context.get('post').group, self.post.group)
 
     def test_create_page_show_correct_context(self):
         """Шаблон create сформирован с правильным контекстом."""

@@ -34,7 +34,7 @@ class PostFormTests(TestCase):
         }
         response = self.authorized_client.post(
             reverse('posts:post_create'), data=form_data, follow=True,)
-        new_post = Post.objects.first()
+        new_post = Post.objects.latest('pub_date')
         self.assertRedirects(response, reverse(
             'posts:profile',
             kwargs={'username': self.user.username}
