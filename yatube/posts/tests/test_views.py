@@ -174,25 +174,25 @@ class PaginatorViewsTest(TestCase):
         self.author_client.force_login(PaginatorViewsTest.post.author)
 
     def test_homepage_first_page_contains_ten_records(self):
-        '''Проверка: количество постов на первой странице Главной равно 10.'''
+        '''Проверка: количество постов на первой странице Главной.'''
         response = self.client.get(reverse('posts:index'))
         self.assertEqual(len(response.context['page_obj']), POSTS_PER_PAGE)
 
     def test_homepage_second_page_contains_three_records(self):
-        '''Проверка: количество постов на второй странице Главной равно 3.'''
+        '''Проверка: количество постов на второй странице Главной.'''
         response = self.client.get(reverse('posts:index') + '?page=2')
         self.assertEqual(len(response.context['page_obj']),
                          self.POST_PER_SECOND_PAGE)
 
     def test_group_page_first_page_contains_ten_records(self):
-        '''Проверка: количество постов на первой странице Группы равно 10.'''
+        '''Проверка: количество постов на первой странице Группы.'''
         response = self.client.get(
             reverse('posts:group_list', kwargs={'slug': self.group.slug})
         )
         self.assertEqual(len(response.context['page_obj']), POSTS_PER_PAGE)
 
     def test_group_page_second_page_contains_three_records(self):
-        '''Проверка: количество постов на второй странице Группы равно 3.'''
+        '''Проверка: количество постов на второй странице Группы.'''
         response = self.client.get(
             reverse(
                 'posts:group_list',
@@ -202,7 +202,7 @@ class PaginatorViewsTest(TestCase):
                          self.POST_PER_SECOND_PAGE)
 
     def test_profile_page_first_page_contains_ten_records(self):
-        '''Проверка: количество постов на первой странице Профиля равно 10.'''
+        '''Проверка: количество постов на первой странице Профиля.'''
         response = self.client.get(
             reverse(
                 'posts:profile',
@@ -212,7 +212,7 @@ class PaginatorViewsTest(TestCase):
         self.assertEqual(len(response.context['page_obj']), POSTS_PER_PAGE)
 
     def test_profile_page_second_page_contains_three_records(self):
-        '''Проверка: количество постов на второй странице Профиля равно 3.'''
+        '''Проверка: количество постов на второй странице Профиля.'''
         response = self.client.get(
             reverse(
                 'posts:profile',
