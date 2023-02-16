@@ -2,6 +2,7 @@
 {% block title %}
   {{ group.title }}
 {% endblock title %}
+{% load thumbnail%}
 {% block content %}
   <h1>{{ group.title }}</h1>
   <p>{{ group.description }}</p>
@@ -16,6 +17,9 @@
           Дата публикации: {{ post.pub_date|date:"d E Y"}}
         </li>
       </ul>
+      {% thumbnail post.image "600x339" crop="center" upscale=True as im %}
+        <img class="card-img my-2" src="{{ im.url }}">
+      {% endthumbnail %}
       <p>{{ post.text|linebreaks }}</p>
       <a href="{% url 'posts:post_detail' post.id %}">подробная информация</a>
       {% if not forloop.last %}<hr>{% endif %}

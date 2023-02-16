@@ -2,6 +2,7 @@
 {% block title %}
   Последние обновления на сайте
 {% endblock %}
+{% load thumbnail%}
 {% block content %}
   <h1>Последние обновления на сайтe</h1>
   {% for post in page_obj %}
@@ -14,13 +15,16 @@
         <li>
           Дата публикации: {{ post.pub_date|date:"d E Y"}}
         </li>
-      </ul>      
+      </ul> 
+      {% thumbnail post.image "600x339" crop="center" upscale=True as im %}
+        <img class="card-img my-2" src="{{ im.url }}">
+      {% endthumbnail %}     
       <p>{{ post.text|linebreaks }}</p>
       <p>
         <a href="{% url 'posts:post_detail' post.id %}">подробная информация о посте</a>
       </p>
       {% if post.group %}   
-        <a href="{% url 'posts:group_list' post.group.slug %}">все записи группы</a>
+        <a href="{% url 'posts:group_list' post.group.slug %}">все записи группы {{ post.group.slug }}</a>
       {% endif %}
       {% if not forloop.last %}<hr>{% endif %}
     </article>

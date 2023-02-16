@@ -2,6 +2,7 @@
 {% block title %}
   {{ post.text|truncatechars:30 }}
 {% endblock %}
+{% load thumbnail %}
 {% block content %}
   <div class="row">
     <aside class="col-12 col-md-3">
@@ -11,8 +12,7 @@
       </li>
       {% if post.group %}   
       <li class="list-group-item">
-        Группа: {{ gpoup.title }}
-        <a href="{% url 'posts:group_list' post.group.slug %}">все записи группы</a>
+        <a href="{% url 'posts:group_list' post.group.slug %}">все записи группы {{ post.group.slug}} </a>
       </li>
       {% endif %}
       <li class="list-group-item">
@@ -29,12 +29,18 @@
     </ul>
     </aside>
     <article class="col-12 col-md-9">
-      <p>{{ post.text|linebreaksbr }}</p>
+      <p>
+        {% thumbnail post.image "900x300" crop="center" as im %}
+          <img class="card-img my-2" src="{{ im.url }}" width="300px" height="300px">
+        {% endthumbnail %}
+        {{ post.text|linebreaksbr }}
+      </p>
       {% if user == post.author %}
         <a class="btn btn-primary" href="{% url 'posts:post_edit' post.id %}">
           Редактировать запись
         </a>        
       {% endif %}
+      {% include 'includes/comment.html' %}
     </article>
   </div> 
 {% endblock %}

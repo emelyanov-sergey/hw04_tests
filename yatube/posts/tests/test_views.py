@@ -1,9 +1,11 @@
+from http import HTTPStatus
+
 from django.test import TestCase, Client
 from django.urls import reverse
 from django import forms
 from django.conf import settings
 
-from posts.models import Post, Group, User
+from posts.models import Post, Group, User, Comment
 
 POSTS_PER_PAGE = settings.POSTS_PER_PAGE
 
@@ -28,6 +30,11 @@ class PostPagesTests(TestCase):
             author=PostPagesTests.user,
             text='Тестовый пост',
             group=cls.group,
+        )
+        cls.comment = Comment.objects.create(
+            post=cls.post,
+            text='Тестовый комментарий',
+            author=cls.user,
         )
 
     def setUp(self):
@@ -69,6 +76,7 @@ class PostPagesTests(TestCase):
         self.assertEqual(first_object.author, self.user)
         self.assertEqual(first_object.text, self.post.text)
         self.assertEqual(first_object.group, self.group)
+        self.assertEqual(first_object.image, self.post.image)
 
     def test_group_list_page_show_correct_context(self):
         """Шаблон group_list сформирован с правильным контекстом."""
@@ -78,6 +86,7 @@ class PostPagesTests(TestCase):
         self.assertEqual(first_object.author, self.user)
         self.assertEqual(first_object.text, self.post.text)
         self.assertEqual(first_object.group, self.group)
+        self.assertEqual(first_object.image, self.post.image)
 
     def test_profile_page_show_correct_context(self):
         """Шаблон profile сформирован с правильным контекстом."""
@@ -87,7 +96,8 @@ class PostPagesTests(TestCase):
         data_fields = {
             first_object.text: self.post.text,
             first_object.group: self.group,
-            first_object.author: self.user
+            first_object.author: self.user,
+            first_object.image: self.post.image,
         }
         for value, expected in data_fields.items():
             with self.subTest(value=value):
@@ -100,13 +110,15 @@ class PostPagesTests(TestCase):
         self.assertEqual(response.context.get('post').text, self.post.text)
         self.assertEqual(response.context.get('post').author, self.post.author)
         self.assertEqual(response.context.get('post').group, self.post.group)
+        self.assertEqual(response.context.get('post').image, self.post.image)
 
     def test_create_page_show_correct_context(self):
         """Шаблон create сформирован с правильным контекстом."""
         response = self.authorized_client.get(reverse('posts:post_create'))
         form_fields = {
             'text': forms.fields.CharField,
-            'group': forms.fields.ChoiceField
+            'group': forms.fields.ChoiceField,
+            'image': forms.fields.ImageField,
         }
         for value, expected in form_fields.items():
             with self.subTest(value=value):
@@ -119,7 +131,8 @@ class PostPagesTests(TestCase):
             reverse('posts:post_edit', kwargs={'post_id': self.post.id}))
         form_fields = {
             'text': forms.fields.CharField,
-            'group': forms.fields.ChoiceField
+            'group': forms.fields.ChoiceField,
+            'image': forms.fields.ImageField,
         }
         for value, expected in form_fields.items():
             with self.subTest(value=value):
@@ -144,6 +157,32 @@ class PostPagesTests(TestCase):
         )
         context = response.context['page_obj'].object_list
         self.assertNotIn(self.post, context, 'поста нет в другой группе')
+
+    def test_add_comment_on_post(self):
+        """Комментарий появляется на странице поста"""
+        comment_count = Comment.objects.count()
+        form_data = {'text': self.comment.text}
+        response = self.authorized_client.post(
+            reverse('posts:add_comment', kwargs={'post_id': self.post.id}),
+            data=form_data,
+            follow=True
+        )
+        self.assertContains(response, self.comment.text)
+        self.assertEqual(Comment.objects.count(), comment_count + 1)
+
+    def test_add_comment_only_authorized_client(self):
+        comment_count = Comment.objects.count()
+        form_data = {'text': self.comment.text}
+        response = self.guest_client.post(
+            reverse('posts:add_comment', kwargs={'post_id': self.post.id}),
+            data=form_data,
+            follow=True
+        )
+        self.assertTrue(Comment.objects.filter(
+            text='Тестовый комментарий'
+        ).exists())
+        self.assertEqual(Comment.objects.count(), comment_count)
+        self.assertEqual(response.status_code, HTTPStatus.OK)
 
 
 class PaginatorViewsTest(TestCase):
