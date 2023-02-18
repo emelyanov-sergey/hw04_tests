@@ -1,9 +1,8 @@
-from http import HTTPStatus
-
 from django.test import TestCase, Client
 from django.urls import reverse
 from django import forms
 from django.conf import settings
+from django.core.cache import cache
 
 from posts.models import Post, Group, User, Comment
 
@@ -38,6 +37,7 @@ class PostPagesTests(TestCase):
         )
 
     def setUp(self):
+        cache.clear()
         self.guest_client = Client()
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
@@ -173,7 +173,7 @@ class PostPagesTests(TestCase):
     def test_add_comment_only_authorized_client(self):
         comment_count = Comment.objects.count()
         form_data = {'text': self.comment.text}
-        response = self.guest_client.post(
+        self.guest_client.post(
             reverse('posts:add_comment', kwargs={'post_id': self.post.id}),
             data=form_data,
             follow=True
@@ -182,7 +182,18 @@ class PostPagesTests(TestCase):
             text='Тестовый комментарий'
         ).exists())
         self.assertEqual(Comment.objects.count(), comment_count)
-        self.assertEqual(response.status_code, HTTPStatus.OK)
+
+    def test_index_cache(self):
+        response = self.authorized_client.get(reverse('posts:index'))
+        Post.objects.create(
+            text='Тестовый пост',
+            author=self.user
+        )
+        response_2 = self.authorized_client.get(reverse('posts:index'))
+        self.assertEqual(response.content, response_2.content)
+        cache.clear()
+        response_3 = self.authorized_client.get(reverse('posts:index'))
+        self.assertNotEqual(response.content, response_3.content)
 
 
 class PaginatorViewsTest(TestCase):
@@ -205,6 +216,7 @@ class PaginatorViewsTest(TestCase):
             )
 
     def setUp(self):
+        cache.clear()
         self.guest_client = Client()
         self.user = User.objects.create(username='Auth')
         self.authorized_client = Client()

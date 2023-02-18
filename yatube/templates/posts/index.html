@@ -5,6 +5,7 @@
 {% load thumbnail%}
 {% block content %}
   <h1>Последние обновления на сайтe</h1>
+  {% include 'posts/includes/switcher.html' %}
   {% for post in page_obj %}
     <article>
       <ul>
