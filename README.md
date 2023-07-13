@@ -50,7 +50,7 @@ Yatube - это социальная сеть с авторизацией, пе�
 1. Клонировать репозиторий:
 
    ```python
-   git clone https://github.com/egorcoders/hw04_tests.git
+   git clone https://github.com/emelyanov-sergey/hw04_tests.git
    ```
 
 2. Перейти в папку с проектом:
